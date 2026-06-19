@@ -1,0 +1,12 @@
+<!--
+  Thin Aura wrapper so the agentforceLauncher LWC can be used as a GLOBAL quick
+  action (the "+" actions menu / Global Publisher Layout). LWCs can't be global
+  quick actions directly, so we host the LWC inside this Aura component, which
+  implements the quick-action interface. Object-specific (record) placements use
+  the LWC directly via its lightning__RecordAction ScreenAction target.
+-->
+<aura:component
+    implements="force:lightningQuickActionWithoutHeader"
+    access="global">
+    <c:agentforceLauncher cardTitle="Launch Agentforce Agent" />
+</aura:component>

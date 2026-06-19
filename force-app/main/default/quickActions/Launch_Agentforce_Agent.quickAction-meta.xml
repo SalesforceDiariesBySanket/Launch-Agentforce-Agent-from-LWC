@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<QuickAction xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Global action that opens the Agentforce Launcher (ACC API) showcase, which can open/close the agent panel and send utterances to the HelloWorld agent.</description>
+    <height>600</height>
+    <label>Launch Agentforce Agent</label>
+    <lightningComponent>agentLauncherGlobalAction</lightningComponent>
+    <optionsCreateFeedItem>false</optionsCreateFeedItem>
+    <type>LightningComponent</type>
+    <width>50</width>
+</QuickAction>

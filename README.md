@@ -1,6 +1,6 @@
 # Launch Agentforce Agent from LWC
 
-A Salesforce Lightning Web Component (LWC) that programmatically controls the native **Agentforce side panel** using the headless `lightning/accApi` module.
+A Salesforce Lightning Web Component (LWC) that programmatically controls the native **Agentforce side panel** using the headless `lightning/accApi` module. A thin **Aura wrapper** + **QuickAction** enables the same LWC to surface as a global action in the `+` publisher menu.
 
 > Blog: [salesforcediaries.com](https://salesforcediaries.com)
 
@@ -55,6 +55,34 @@ A built-in **queue demo** fires three utterances back-to-back to demonstrate the
 
 ---
 
+### `agentLauncherGlobalAction` — Aura Wrapper Component
+
+LWCs cannot be registered as **global quick actions** directly. This thin Aura component implements `force:lightningQuickActionWithoutHeader` and hosts the `agentforceLauncher` LWC, bridging that gap.
+
+| File | Purpose |
+|---|---|
+| `agentLauncherGlobalAction.cmp` | Aura shell — implements `force:lightningQuickActionWithoutHeader`, embeds the LWC |
+| `agentLauncherGlobalAction.cmp-meta.xml` | Aura bundle metadata (API 66.0) |
+
+> **Why Aura?** The `lightning__RecordAction` target on the LWC handles _object-specific_ quick actions natively. Global quick actions (shown in the `+` publisher bar on every page) require an Aura component or Visualforce page as the host.
+
+---
+
+### `Launch_Agentforce_Agent` — Global Quick Action
+
+Registers `agentLauncherGlobalAction` as a **Global Quick Action** that appears in the `+` publisher menu across all pages once added to the Global Publisher Layout.
+
+| Property | Value |
+|---|---|
+| Type | `LightningComponent` |
+| Label | `Launch Agentforce Agent` |
+| Height | `600 px` |
+| Lightning Component | `agentLauncherGlobalAction` |
+
+To activate: **Setup → Global Actions → Publisher Layouts →** drag **Launch Agentforce Agent** into the layout.
+
+---
+
 ### `AgentLauncherController` — Apex Class
 
 Provides two `@AuraEnabled(cacheable=true)` methods used by the LWC:
@@ -101,31 +129,32 @@ sf org login web --alias my-org
 sf project deploy start --source-dir force-app --target-org my-org
 ```
 
-### 4. Add to a page
+### 4. Add to pages
 
-Open **Lightning App Builder**, drag **Agentforce Launcher (ACC API)** onto any App, Home, or Record page, configure the **Agent API name** property, and activate the page.
-
-For the **Utility Bar**, add the component via **App Manager → Utility Items**.
+| Surface | How |
+|---|---|
+| App / Home / Record page | **Lightning App Builder** → drag **Agentforce Launcher (ACC API)** onto the page |
+| Utility Bar | **App Manager → Utility Items** → add the LWC |
+| Global `+` action | **Setup → Global Actions → Publisher Layouts** → add **Launch Agentforce Agent** |
+| Object-specific quick action | **Object Manager → Buttons, Links & Actions** → add LWC as a screen action |
 
 ---
 
 ## How It Works
 
 ```
-App Builder config
-  └── agentDeveloperName = "MyAgent"
-        │
-        ▼
-  AgentLauncherController.resolveBotId("MyAgent")
-        │  SOQL: SELECT Id FROM BotDefinition WHERE DeveloperName = :dev
-        ▼
-  resolvedBotId = "0Xx000000000001"
-        │
-        ▼
-  lightning/accApi
-    open(resolvedBotId)        → opens side panel for MyAgent
-    execute(text, resolvedBotId) → sends utterance to MyAgent
-    close()                    → hides the side panel
+Global Publisher Layout ( + button )
+  └── Launch_Agentforce_Agent  (QuickAction)
+        └── agentLauncherGlobalAction  (Aura — force:lightningQuickActionWithoutHeader)
+              └── agentforceLauncher  (LWC)
+                    │
+                    ├── AgentLauncherController.resolveBotId(developerName)
+                    │       └── SOQL BotDefinition → resolvedBotId
+                    │
+                    └── lightning/accApi
+                            open(resolvedBotId)          → opens side panel
+                            execute(text, resolvedBotId) → sends utterance
+                            close()                      → hides side panel
 ```
 
 ---
@@ -134,17 +163,23 @@ App Builder config
 
 ```
 force-app/main/default/
+├── aura/
+│   └── agentLauncherGlobalAction/
+│       ├── agentLauncherGlobalAction.cmp
+│       └── agentLauncherGlobalAction.cmp-meta.xml
 ├── classes/
 │   ├── AgentLauncherController.cls
 │   ├── AgentLauncherController.cls-meta.xml
 │   ├── AgentLauncherControllerTest.cls
 │   └── AgentLauncherControllerTest.cls-meta.xml
-└── lwc/
-    └── agentforceLauncher/
-        ├── agentforceLauncher.html
-        ├── agentforceLauncher.js
-        ├── agentforceLauncher.css
-        └── agentforceLauncher.js-meta.xml
+├── lwc/
+│   └── agentforceLauncher/
+│       ├── agentforceLauncher.html
+│       ├── agentforceLauncher.js
+│       ├── agentforceLauncher.css
+│       └── agentforceLauncher.js-meta.xml
+└── quickActions/
+    └── Launch_Agentforce_Agent.quickAction-meta.xml
 ```
 
 ---
@@ -154,6 +189,7 @@ force-app/main/default/
 - The `execute` method **does not return** the agent's reply — it only sends the utterance.
 - The queue demo shows that back-to-back `execute()` calls are delivered **in order** (the API queues them internally).
 - `BotDefinition` rows cannot be created in a test context, so `resolveBotId` gracefully returns `null` for unknown names in tests.
+- LWCs **cannot** be global quick actions natively — the Aura wrapper is the supported approach until the platform adds direct LWC support.
 
 ---
 
