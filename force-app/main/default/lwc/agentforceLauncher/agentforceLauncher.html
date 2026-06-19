@@ -1,0 +1,208 @@
+<template>
+    <lightning-card icon-name="utility:einstein">
+        <span slot="title" class="header-title">{cardTitle}</span>
+        <lightning-button-icon
+            slot="actions"
+            icon-name="utility:refresh"
+            variant="border-filled"
+            alternative-text="Re-resolve agent"
+            title="Re-resolve agent"
+            onclick={handleResolveClick}
+            disabled={resolving}
+        ></lightning-button-icon>
+
+        <div class={containerClass}>
+            <p class="intro">
+                Programmatically control the native Agentforce side panel with the
+                <code>lightning/accApi</code> module — open it, close it, or send an utterance to your agent.
+            </p>
+
+            <!-- Target agent / status -->
+            <div class={statusClass}>
+                <lightning-icon icon-name={statusIcon} size="x-small" variant={statusVariant}></lightning-icon>
+                <span class="status-text">{statusText}</span>
+            </div>
+
+            <template lwc:if={hasContext}>
+                <p class="context">{contextText}</p>
+            </template>
+
+            <div class="resolver">
+                <lightning-input
+                    class="name-input"
+                    type="text"
+                    label="Agent API name"
+                    value={runtimeName}
+                    placeholder="HelloWorld"
+                    onchange={handleNameChange}
+                    field-level-help="BotDefinition.DeveloperName — resolved to a Bot Id (0Xx…) for the API."
+                ></lightning-input>
+                <lightning-button
+                    label="Resolve"
+                    icon-name="utility:search"
+                    onclick={handleResolveClick}
+                    disabled={resolving}
+                ></lightning-button>
+            </div>
+
+            <template lwc:if={hasAgentOptions}>
+                <lightning-combobox
+                    class="agent-picker"
+                    label="…or pick an agent in this org"
+                    placeholder="Select an agent"
+                    options={agentOptions}
+                    onchange={handleAgentPick}
+                    variant="label-stacked"
+                ></lightning-combobox>
+            </template>
+
+            <!-- ACC API variants -->
+            <div class="variants">
+                <!-- open() -->
+                <div class="variant">
+                    <div class="variant-head">
+                        <h3 class="variant-title">Open last agent</h3>
+                        <code class="sig">open()</code>
+                    </div>
+                    <p class="variant-desc">Opens the panel using the last used agent (no Bot Id required).</p>
+                    <lightning-button
+                        variant="brand-outline"
+                        label="Open panel"
+                        icon-name="utility:open"
+                        onclick={handleOpenLast}
+                        disabled={openLastDisabled}
+                    ></lightning-button>
+                    <template lwc:if={spinnerOpenLast}>
+                        <lightning-spinner size="small" alternative-text="Working"></lightning-spinner>
+                    </template>
+                </div>
+
+                <!-- open(botId) -->
+                <div class="variant">
+                    <div class="variant-head">
+                        <h3 class="variant-title">Open this agent</h3>
+                        <code class="sig">open(botId)</code>
+                    </div>
+                    <p class="variant-desc">Opens the panel targeting the resolved agent specifically.</p>
+                    <lightning-button
+                        variant="brand"
+                        label="Open agent"
+                        icon-name="utility:einstein"
+                        onclick={handleOpenAgent}
+                        disabled={openAgentDisabled}
+                    ></lightning-button>
+                    <template lwc:if={spinnerOpenAgent}>
+                        <lightning-spinner size="small" alternative-text="Working"></lightning-spinner>
+                    </template>
+                </div>
+
+                <!-- close() -->
+                <div class="variant">
+                    <div class="variant-head">
+                        <h3 class="variant-title">Close panel</h3>
+                        <code class="sig">close()</code>
+                    </div>
+                    <p class="variant-desc">Hides the Agentforce panel. No parameters.</p>
+                    <lightning-button
+                        label="Close panel"
+                        icon-name="utility:close"
+                        onclick={handleClose}
+                        disabled={closeDisabled}
+                    ></lightning-button>
+                    <template lwc:if={spinnerClose}>
+                        <lightning-spinner size="small" alternative-text="Working"></lightning-spinner>
+                    </template>
+                </div>
+
+                <!-- execute(utterance, botId) -->
+                <div class="variant variant--wide">
+                    <div class="variant-head">
+                        <h3 class="variant-title">Send an utterance</h3>
+                        <code class="sig">execute(utterance, botId)</code>
+                    </div>
+                    <p class="variant-desc">Sends a natural-language message to the agent as if the user typed it.</p>
+                    <lightning-textarea
+                        class="utterance-input"
+                        label="Utterance"
+                        value={utterance}
+                        onchange={handleUtteranceChange}
+                        max-length="255"
+                    ></lightning-textarea>
+                    <div class="chips">
+                        <template for:each={presetChips} for:item="chip">
+                            <button
+                                key={chip.key}
+                                type="button"
+                                class="chip"
+                                data-text={chip.text}
+                                onclick={handlePreset}
+                            >{chip.text}</button>
+                        </template>
+                    </div>
+                    <div class="execute-actions">
+                        <lightning-button
+                            variant="brand"
+                            label="Send to agent"
+                            icon-name="utility:send"
+                            onclick={handleExecute}
+                            disabled={executeDisabled}
+                        ></lightning-button>
+                        <lightning-button
+                            label="Run queue demo (×3)"
+                            icon-name="utility:reminder"
+                            onclick={handleQueueDemo}
+                            disabled={queueDisabled}
+                            title="Fires three utterances back-to-back to show in-order queueing"
+                        ></lightning-button>
+                        <template lwc:if={spinnerExecute}>
+                            <lightning-spinner size="small" alternative-text="Sending"></lightning-spinner>
+                        </template>
+                        <template lwc:if={spinnerQueue}>
+                            <lightning-spinner size="small" alternative-text="Queueing"></lightning-spinner>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity log -->
+            <div class="log">
+                <div class="log-head">
+                    <h3 class="log-title">Activity</h3>
+                    <template lwc:if={hasLog}>
+                        <lightning-button-icon
+                            icon-name="utility:delete"
+                            variant="bare"
+                            alternative-text="Clear activity"
+                            title="Clear activity"
+                            onclick={handleClearLog}
+                        ></lightning-button-icon>
+                    </template>
+                </div>
+                <template lwc:if={hasLog}>
+                    <ul class="log-list">
+                        <template for:each={log} for:item="entry">
+                            <li key={entry.id} class={entry.itemClass}>
+                                <lightning-icon icon-name={entry.icon} size="x-small" variant={entry.variant}></lightning-icon>
+                                <div class="log-body">
+                                    <div class="log-row">
+                                        <code class="log-label">{entry.label}</code>
+                                        <span class="log-time">{entry.time}</span>
+                                    </div>
+                                    <p class="log-detail">{entry.detail}</p>
+                                </div>
+                            </li>
+                        </template>
+                    </ul>
+                </template>
+                <template lwc:else>
+                    <p class="log-empty">No calls yet. Try a button above.</p>
+                </template>
+            </div>
+
+            <p class="footnote">
+                Requires Agentforce on desktop Lightning Experience (API 59.0+). The
+                <code>execute</code> method does not return the agent's reply.
+            </p>
+        </div>
+    </lightning-card>
+</template>
